@@ -1,0 +1,12 @@
+version: "3.7"
+services:
+  filebeat:
+    image: docker.elastic.co/beats/filebeat:8.5.3
+    user: root # for adding docker metadata to processors
+    environment:
+      - TZ=Asia/Ho_Chi_Minh
+    command: --strict.perms=false -e  # -e flag to log to stderr and disable syslog/file output
+    volumes:
+      - ./filebeat.yml:/usr/share/filebeat/filebeat.yml
+      - ./inputs.d/:/usr/share/filebeat/inputs.d/:ro
+      - /home/ubuntu/spring-to-logstash/log.log:/var/logs/log.log:ro

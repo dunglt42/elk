@@ -30,6 +30,12 @@ services:
           "      - localhost\n"\
           "    ip:\n"\
           "      - 127.0.0.1\n"\
+          "  - name: kibana\n"\
+          "    dns:\n"\
+          "      - kibana\n"\
+          "      - localhost\n"\
+          "    ip:\n"\
+          "      - 127.0.0.1\n"\
           > config/certs/instances.yml;
           bin/elasticsearch-certutil cert --silent --pem -out config/certs/certs.zip --in config/certs/instances.yml --ca-cert config/certs/ca/ca.crt --ca-key config/certs/ca/ca.key;
           unzip config/certs/certs.zip -d config/certs;
@@ -79,6 +85,7 @@ services:
       - xpack.security.transport.ssl.certificate_authorities=certs/ca/ca.crt
       - xpack.security.transport.ssl.verification_mode=certificate
       - xpack.license.self_generated.type=${LICENSE}
+    restart: always
     ulimits:
       memlock:
         soft: -1
@@ -109,6 +116,7 @@ services:
       - 9600:9600
     environment:
       - "ES_JAVA_OPTS=-Xms1024m -Xmx1024m"
+    restart: always
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:9600"]
       interval: 10s
@@ -131,6 +139,7 @@ services:
       - ELASTICSEARCH_USERNAME=kibana_system
       - ELASTICSEARCH_PASSWORD=${KIBANA_PASSWORD}
       - ELASTICSEARCH_SSL_CERTIFICATEAUTHORITIES=config/certs/ca/ca.crt
+    restart: always
     healthcheck:
       test:
         [
@@ -140,6 +149,29 @@ services:
       interval: 10s
       timeout: 10s
       retries: 120
+
+  apm-server:
+    depends_on:
+      es01:
+        condition: service_healthy
+      kibana:
+        condition: service_healthy
+    image: docker.elastic.co/apm/apm-server:${STACK_VERSION}
+    environment:
+      - TZ=Asia/Ho_Chi_Minh
+      - ELASTIC_PASSWORD=${ELASTIC_PASSWORD}
+    ports:
+      - "8200:8200"
+    command: --strict.perms=false -e # -e flag to log to stderr and disable syslog/file output          
+    volumes:
+      - ./apm-server/apm-server.yml:/usr/share/apm-server/apm-server.yml
+      - /var/lib/docker/volumes/elk_certs/_data/ca/ca.crt:/etc/certs/ca.crt
+    restart: always
+    healthcheck:
+      test: curl -s http://localhost:8200/healthcheck >/dev/null; if [[ $$? == 52 ]]; then echo 0; else echo 1; fi
+      interval: 30s
+      timeout: 10s
+      retries: 5
 
 volumes:
   certs:
